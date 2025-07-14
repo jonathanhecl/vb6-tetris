@@ -510,18 +510,23 @@ Private Sub ClearCompletedLines()
         If fullLine Then
             ' Eliminar los botones de la línea
             For i = m_LandedBlocks.Count To 1 Step -1
-                If (m_LandedBlocks(i).Top / BOX_SIZE) = y Then
+                If CInt(m_LandedBlocks(i).Top / BOX_SIZE) = y Then
                     Unload m_LandedBlocks(i)
                     m_LandedBlocks.Remove i
                 End If
             Next i
             
-            ' Bajar las líneas superiores
+            ' Bajar las líneas superiores en la grilla
             For y2 = y To 1 Step -1
                 For x2 = 0 To GRID_WIDTH - 1
                     m_Grid(x2, y2) = m_Grid(x2, y2 - 1)
                 Next x2
             Next y2
+            
+            ' Limpiar la fila superior de la grilla
+            For x2 = 0 To GRID_WIDTH - 1
+                m_Grid(x2, 0) = False
+            Next x2
             
             ' Bajar los botones de las líneas superiores
             For Each block In m_LandedBlocks

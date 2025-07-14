@@ -307,89 +307,58 @@ Private Sub Timer1_Timer()
 End Sub
 
 Private Sub MoveLeft()
-    If Not CanMoveLeft() Then Exit Sub
+    ' Solo verificar colisión con el borde izquierdo, no con bloques aterrizados
+    Dim canMove As Boolean
+    canMove = True
     
+    ' Verificar colisión con el borde izquierdo
     Dim block As CommandButton
     For Each block In m_ActiveBlocks
-        block.Left = block.Left - BOX_SIZE
+        If block.Left - BOX_SIZE < 0 Then
+            canMove = False
+            Exit For
+        End If
     Next block
+    
+    ' Si no hay colisión con el borde, mover la pieza
+    If canMove Then
+        For Each block In m_ActiveBlocks
+            block.Left = block.Left - BOX_SIZE
+        Next block
+    End If
 End Sub
 
 Private Sub MoveRight()
-    If Not CanMoveRight() Then Exit Sub
+    ' Solo verificar colisión con el borde derecho, no con bloques aterrizados
+    Dim canMove As Boolean
+    canMove = True
     
+    ' Verificar colisión con el borde derecho
     Dim block As CommandButton
     For Each block In m_ActiveBlocks
-        block.Left = block.Left + BOX_SIZE
+        If block.Left + BOX_SIZE >= Frame1.Width Then
+            canMove = False
+            Exit For
+        End If
     Next block
+    
+    ' Si no hay colisión con el borde, mover la pieza
+    If canMove Then
+        For Each block In m_ActiveBlocks
+            block.Left = block.Left + BOX_SIZE
+        Next block
+    End If
 End Sub
 
-Private Function CanMoveLeft() As Boolean
-    Dim activeBlock As CommandButton
-    Dim landedBlock As CommandButton
-    CanMoveLeft = True
-
-    For Each activeBlock In m_ActiveBlocks
-        ' 1. Comprobar colisión con el borde izquierdo
-        If activeBlock.Left - BOX_SIZE < 0 Then
-            CanMoveLeft = False
-            Exit Function
-        End If
-        
-        ' 2. Comprobar colisión con bloques aterrizados
-        For Each landedBlock In m_LandedBlocks
-            If activeBlock.Top = landedBlock.Top And activeBlock.Left - BOX_SIZE = landedBlock.Left Then
-                CanMoveLeft = False
-                Exit Function
-            End If
-        Next landedBlock
-    Next activeBlock
-End Function
-
-Private Function CanMoveRight() As Boolean
-    Dim activeBlock As CommandButton
-    Dim landedBlock As CommandButton
-    CanMoveRight = True
-
-    For Each activeBlock In m_ActiveBlocks
-        ' 1. Comprobar colisión con el borde derecho
-        If activeBlock.Left + BOX_SIZE >= Frame1.Width Then
-            CanMoveRight = False
-            Exit Function
-        End If
-        
-        ' 2. Comprobar colisión con bloques aterrizados
-        For Each landedBlock In m_LandedBlocks
-            If activeBlock.Top = landedBlock.Top And activeBlock.Left + BOX_SIZE = landedBlock.Left Then
-                CanMoveRight = False
-                Exit Function
-            End If
-        Next landedBlock
-    Next activeBlock
-End Function
-
-Private Function CanRotate(newX As Integer, newY As Integer) As Boolean
+Private Function CanRotate(blocks() As Integer) As Boolean
     ' Verificar si la rotación es válida (sin colisiones)
     Dim i As Integer
     Dim testX As Integer, testY As Integer
-    Dim block As CommandButton
-    
-    ' Si es la pieza O (cuadrado), no necesita rotación
-    If m_CurrentPieceType = "O" Then
-        CanRotate = False
-        Exit Function
-    End If
-    
-    ' Si es la pieza I (barra), solo tiene 2 rotaciones
-    If m_CurrentPieceType = "I" And m_CurrentRotation >= 1 Then
-        CanRotate = False
-        Exit Function
-    End If
     
     ' Verificar colisiones con bordes y otras piezas
-    For Each block In m_ActiveBlocks
-        testX = block.Left + newX
-        testY = block.Top + newY
+    For i = 0 To UBound(blocks) Step 2
+        testX = blocks(i)
+        testY = blocks(i + 1)
         
         ' Verificar colisión con bordes
         If testX < 0 Or testX >= Frame1.Width Or testY < 0 Or testY >= Frame1.Height Then
@@ -405,7 +374,7 @@ Private Function CanRotate(newX As Integer, newY As Integer) As Boolean
                 Exit Function
             End If
         Next landedBlock
-    Next block
+    Next i
     
     CanRotate = True
 End Function
@@ -414,28 +383,54 @@ Private Sub RotatePiece()
     ' No rotar la pieza O (cuadrado)
     If m_CurrentPieceType = "O" Then Exit Sub
     
-    ' Para la pieza I (barra), solo permitir 2 rotaciones
-    If m_CurrentPieceType = "I" And m_CurrentRotation >= 1 Then
-        m_CurrentRotation = 0
-    Else
+    ' Calcular el centro de rotación (usando el segundo bloque como pivote)
+    If m_ActiveBlocks.Count < 2 Then Exit Sub
+    
+    Dim centerX As Integer, centerY As Integer
+    centerX = m_ActiveBlocks(2).Left + BOX_SIZE \ 2
+    centerY = m_ActiveBlocks(2).Top + BOX_SIZE \ 2
+    
+    ' Calcular nuevas posiciones después de la rotación
+    Dim newPositions() As Integer
+    ReDim newPositions((m_ActiveBlocks.Count * 2) - 1)
+    
+    Dim i As Integer, j As Integer
+    Dim relX As Integer, relY As Integer
+    Dim newX As Integer, newY As Integer
+    
+    j = 0
+    For Each block In m_ActiveBlocks
+        ' Calcular posición relativa al centro
+        relX = block.Left + BOX_SIZE \ 2 - centerX
+        relY = block.Top + BOX_SIZE \ 2 - centerY
+        
+        ' Aplicar rotación 90° en sentido horario: (x,y) -> (y,-x)
+        newX = centerX + relY - BOX_SIZE \ 2
+        newY = centerY - relX - BOX_SIZE \ 2
+        
+        ' Asegurar que las coordenadas estén alineadas con la grilla
+        newX = (newX \ BOX_SIZE) * BOX_SIZE
+        newY = (newY \ BOX_SIZE) * BOX_SIZE
+        
+        ' Guardar la nueva posición
+        newPositions(j) = newX
+        newPositions(j + 1) = newY
+        j = j + 2
+    Next block
+    
+    ' Verificar si la rotación es válida
+    If CanRotate(newPositions) Then
+        ' Actualizar las posiciones de los bloques
+        j = 0
+        For Each block In m_ActiveBlocks
+            block.Left = newPositions(j)
+            block.Top = newPositions(j + 1)
+            j = j + 2
+        Next block
+        
+        ' Actualizar el estado de rotación
         m_CurrentRotation = (m_CurrentRotation + 1) Mod 4
     End If
-    
-    ' Guardar la posición actual de la pieza
-    Dim oldLeft As Integer, oldTop As Integer
-    Dim block As CommandButton
-    Set block = m_ActiveBlocks(1) ' Tomamos el primer bloque como referencia
-    oldLeft = block.Left
-    oldTop = block.Top
-    
-    ' Limpiar los bloques actuales
-    For Each block In m_ActiveBlocks
-        block.Visible = False
-    Next block
-    Set m_ActiveBlocks = New Collection
-    
-    ' Recrear la pieza en la nueva rotación
-    CreatePiece oldLeft, oldTop, m_CurrentPieceType, GetPieceColor(m_CurrentPieceType)
 End Sub
 
 Private Function GetPieceColor(pieceType As String) As Long

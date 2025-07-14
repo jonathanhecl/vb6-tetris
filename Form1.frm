@@ -5,43 +5,11 @@ Begin VB.Form Form1
    ClientHeight    =   10230
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   7920
+   ClientWidth     =   7050
    LinkTopic       =   "Form1"
    ScaleHeight     =   10230
-   ScaleWidth      =   7920
+   ScaleWidth      =   7050
    StartUpPosition =   1  'CenterOwner
-   Begin VB.CommandButton Command4 
-      Caption         =   "Acelerar (&S)"
-      Height          =   735
-      Left            =   5760
-      TabIndex        =   5
-      Top             =   9000
-      Width           =   855
-   End
-   Begin VB.CommandButton Command3 
-      Caption         =   "Derecha (&D)"
-      Height          =   735
-      Left            =   6600
-      TabIndex        =   4
-      Top             =   9000
-      Width           =   855
-   End
-   Begin VB.CommandButton Command2 
-      Caption         =   "Izquierda (&A)"
-      Height          =   735
-      Left            =   4920
-      TabIndex        =   3
-      Top             =   9000
-      Width           =   855
-   End
-   Begin VB.CommandButton Command1 
-      Caption         =   "Rotar (&W)"
-      Height          =   735
-      Left            =   5760
-      TabIndex        =   2
-      Top             =   8280
-      Width           =   855
-   End
    Begin VB.Timer Timer1 
       Interval        =   500
       Left            =   4920
@@ -82,7 +50,7 @@ Begin VB.Form Form1
       ForeColor       =   &H00FFFFFF&
       Height          =   495
       Left            =   6000
-      TabIndex        =   7
+      TabIndex        =   3
       Top             =   450
       Width           =   1695
    End
@@ -101,7 +69,7 @@ Begin VB.Form Form1
       ForeColor       =   &H00FFFFFF&
       Height          =   495
       Left            =   4920
-      TabIndex        =   6
+      TabIndex        =   2
       Top             =   480
       Width           =   1335
    End
@@ -210,22 +178,15 @@ Private Function GetRandomPieceIndex() As Integer
     GetRandomPieceIndex = Int(Rnd * 7) ' 7 tipos de piezas (0-6)
 End Function
 
-Private Sub Command1_Click()
-    Call RotatePiece
-End Sub
 
-Private Sub Command2_Click()
-    Call MoveLeft
-End Sub
-
-Private Sub Command3_Click()
-    Call MoveRight
-End Sub
-
-Private Sub Command4_Click()
-    If Timer1.Interval >= 200 Then
-        Timer1.Interval = Timer1.Interval - 200
-    End If
+Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    Select Case KeyCode
+        Case vbKeyW: RotatePiece
+        Case vbKeyA: MoveLeft
+        Case vbKeyD: MoveRight
+        Case vbKeyS: MovePiece 0, BOX_SIZE
+        Case vbKeySpace: InstantDrop
+    End Select
 End Sub
 
 Private Sub Form_Load()
@@ -234,6 +195,9 @@ Private Sub Form_Load()
     
     ' Inicializar el juego
     InitializeGame
+    
+    ' Asegurarse de que el formulario pueda recibir eventos de teclado
+    KeyPreview = True
 End Sub
 
 ' Crea una pieza en la posición especificada
@@ -484,9 +448,6 @@ Private Sub LandPiece()
         m_LandedBlocks.Add block
     Next
     
-    ' Restablecer el tiempo
-    Timer1.Interval = 500
-    
     ' Limpiar líneas completas
     ClearCompletedLines
     
@@ -543,6 +504,17 @@ Private Sub ClearCompletedLines()
             Label2.Caption = Score
         End If
     Next y
+End Sub
+
+Private Sub InstantDrop()
+    ' Mueve la pieza hacia abajo hasta que haya colisión
+    Do While Not CheckCollision(0, BOX_SIZE)
+        MovePiece 0, BOX_SIZE
+        ' Pequeña pausa para la animación
+        DoEvents
+    Loop
+    ' Asegurarse de que la pieza se coloque correctamente
+    LandPiece
 End Sub
 
 Private Sub MovePiece(offsetX As Integer, offsetY As Integer)

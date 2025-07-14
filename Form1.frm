@@ -107,8 +107,12 @@ Private Sub ShowRandomPiece()
     ' Seleccionar una pieza al azar
     pieceIndex = GetRandomPieceIndex()
     
-    ' Calcular la posición centrada
-    startX = (Frame1.Width - (m_PieceTypes(pieceIndex).Width * BOX_SIZE)) \ 2
+    ' Calcular la posición centrada en la grilla
+    Dim gridWidthInBlocks As Integer
+    Dim startCol As Integer
+    gridWidthInBlocks = Frame1.Width \ BOX_SIZE
+    startCol = (gridWidthInBlocks - m_PieceTypes(pieceIndex).Width) \ 2
+    startX = startCol * BOX_SIZE
     
     ' Limpiar bloques activos anteriores
     Set m_ActiveBlocks = New Collection
@@ -299,7 +303,7 @@ Private Function CanMoveRight() As Boolean
 
     For Each activeBlock In m_ActiveBlocks
         ' 1. Comprobar colisión con el borde derecho
-        If activeBlock.Left + activeBlock.Width + BOX_SIZE > Frame1.Width Then
+        If activeBlock.Left + BOX_SIZE >= Frame1.Width Then
             CanMoveRight = False
             Exit Function
         End If
@@ -321,7 +325,7 @@ Private Function CanMoveDown() As Boolean
 
     For Each activeBlock In m_ActiveBlocks
         ' 1. Comprobar si el bloque ha llegado al fondo del area de juego
-        If activeBlock.Top + activeBlock.Height >= Frame1.Height + BOX_SIZE Then
+        If activeBlock.Top + BOX_SIZE >= Frame1.Height Then
             CanMoveDown = False
             Exit Function
         End If

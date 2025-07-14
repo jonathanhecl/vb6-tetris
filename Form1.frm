@@ -4,11 +4,43 @@ Begin VB.Form Form1
    ClientHeight    =   10230
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   5880
+   ClientWidth     =   7920
    LinkTopic       =   "Form1"
    ScaleHeight     =   10230
-   ScaleWidth      =   5880
+   ScaleWidth      =   7920
    StartUpPosition =   1  'CenterOwner
+   Begin VB.CommandButton Command4 
+      Caption         =   "Acelerar (&S)"
+      Height          =   735
+      Left            =   5760
+      TabIndex        =   5
+      Top             =   9000
+      Width           =   855
+   End
+   Begin VB.CommandButton Command3 
+      Caption         =   "Derecha (&D)"
+      Height          =   735
+      Left            =   6600
+      TabIndex        =   4
+      Top             =   9000
+      Width           =   855
+   End
+   Begin VB.CommandButton Command2 
+      Caption         =   "Izquierda (&A)"
+      Height          =   735
+      Left            =   4920
+      TabIndex        =   3
+      Top             =   9000
+      Width           =   855
+   End
+   Begin VB.CommandButton Command1 
+      Caption         =   "Rotar (&W)"
+      Height          =   735
+      Left            =   5760
+      TabIndex        =   2
+      Top             =   8280
+      Width           =   855
+   End
    Begin VB.Timer Timer1 
       Interval        =   500
       Left            =   4920
@@ -54,6 +86,8 @@ End Type
 Private m_PieceTypes() As pieceType
 Private m_ActiveBlocks As Collection
 Private m_LandedBlocks As Collection
+Private m_CurrentPieceType As String
+Private m_CurrentRotation As Integer ' 0: 0°, 1: 90°, 2: 180°, 3: 270°
 
 ' Inicializar el juego
 Private Sub InitializeGame()
@@ -117,14 +151,36 @@ Private Sub ShowRandomPiece()
     ' Limpiar bloques activos anteriores
     Set m_ActiveBlocks = New Collection
 
+    ' Inicializar rotación
+    m_CurrentRotation = 0
+    m_CurrentPieceType = m_PieceTypes(pieceIndex).Name
+    
     ' Crear la pieza
-    CreatePiece startX, 0, m_PieceTypes(pieceIndex).Name, m_PieceTypes(pieceIndex).Color
+    CreatePiece startX, 0, m_CurrentPieceType, m_PieceTypes(pieceIndex).Color
 End Sub
 
 ' Obtener indice de pieza aleatoria
 Private Function GetRandomPieceIndex() As Integer
     GetRandomPieceIndex = Int(Rnd * 7) ' 7 tipos de piezas (0-6)
 End Function
+
+Private Sub Command1_Click()
+    Call RotatePiece
+End Sub
+
+Private Sub Command2_Click()
+    Call MoveLeft
+End Sub
+
+Private Sub Command3_Click()
+    Call MoveRight
+End Sub
+
+Private Sub Command4_Click()
+    If Timer1.Interval >= 200 Then
+        Timer1.Interval = Timer1.Interval - 100
+    End If
+End Sub
 
 Private Sub Form_Load()
     ' Inicializar el generador de números aleatorios
@@ -242,18 +298,12 @@ Private Sub Timer1_Timer()
             m_LandedBlocks.Add block
         Next block
         
+        ' Reiniciamos el tiempo
+        Timer1.Interval = 500
+        
         ' Generar una nueva pieza
         ShowRandomPiece
     End If
-End Sub
-
-Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
-    Select Case KeyCode
-        Case vbKeyLeft
-            MoveLeft
-        Case vbKeyRight
-            MoveRight
-    End Select
 End Sub
 
 Private Sub MoveLeft()
@@ -316,6 +366,87 @@ Private Function CanMoveRight() As Boolean
             End If
         Next landedBlock
     Next activeBlock
+End Function
+
+Private Function CanRotate(newX As Integer, newY As Integer) As Boolean
+    ' Verificar si la rotación es válida (sin colisiones)
+    Dim i As Integer
+    Dim testX As Integer, testY As Integer
+    Dim block As CommandButton
+    
+    ' Si es la pieza O (cuadrado), no necesita rotación
+    If m_CurrentPieceType = "O" Then
+        CanRotate = False
+        Exit Function
+    End If
+    
+    ' Si es la pieza I (barra), solo tiene 2 rotaciones
+    If m_CurrentPieceType = "I" And m_CurrentRotation >= 1 Then
+        CanRotate = False
+        Exit Function
+    End If
+    
+    ' Verificar colisiones con bordes y otras piezas
+    For Each block In m_ActiveBlocks
+        testX = block.Left + newX
+        testY = block.Top + newY
+        
+        ' Verificar colisión con bordes
+        If testX < 0 Or testX >= Frame1.Width Or testY < 0 Or testY >= Frame1.Height Then
+            CanRotate = False
+            Exit Function
+        End If
+        
+        ' Verificar colisión con bloques aterrizados
+        Dim landedBlock As CommandButton
+        For Each landedBlock In m_LandedBlocks
+            If testX = landedBlock.Left And testY = landedBlock.Top Then
+                CanRotate = False
+                Exit Function
+            End If
+        Next landedBlock
+    Next block
+    
+    CanRotate = True
+End Function
+
+Private Sub RotatePiece()
+    ' No rotar la pieza O (cuadrado)
+    If m_CurrentPieceType = "O" Then Exit Sub
+    
+    ' Para la pieza I (barra), solo permitir 2 rotaciones
+    If m_CurrentPieceType = "I" And m_CurrentRotation >= 1 Then
+        m_CurrentRotation = 0
+    Else
+        m_CurrentRotation = (m_CurrentRotation + 1) Mod 4
+    End If
+    
+    ' Guardar la posición actual de la pieza
+    Dim oldLeft As Integer, oldTop As Integer
+    Dim block As CommandButton
+    Set block = m_ActiveBlocks(1) ' Tomamos el primer bloque como referencia
+    oldLeft = block.Left
+    oldTop = block.Top
+    
+    ' Limpiar los bloques actuales
+    For Each block In m_ActiveBlocks
+        block.Visible = False
+    Next block
+    Set m_ActiveBlocks = New Collection
+    
+    ' Recrear la pieza en la nueva rotación
+    CreatePiece oldLeft, oldTop, m_CurrentPieceType, GetPieceColor(m_CurrentPieceType)
+End Sub
+
+Private Function GetPieceColor(pieceType As String) As Long
+    Dim i As Integer
+    For i = 0 To UBound(m_PieceTypes)
+        If m_PieceTypes(i).Name = pieceType Then
+            GetPieceColor = m_PieceTypes(i).Color
+            Exit Function
+        End If
+    Next i
+    GetPieceColor = vbBlack ' Color por defecto
 End Function
 
 Private Function CanMoveDown() As Boolean

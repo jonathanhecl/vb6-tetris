@@ -1,5 +1,6 @@
 VERSION 5.00
 Begin VB.Form Form1 
+   BackColor       =   &H00404040&
    Caption         =   "Tetris VB6 2025"
    ClientHeight    =   10230
    ClientLeft      =   120
@@ -46,23 +47,63 @@ Begin VB.Form Form1
       Left            =   4920
       Top             =   960
    End
-   Begin VB.CommandButton box 
-      BackColor       =   &H000000FF&
-      Height          =   495
-      Index           =   0
-      Left            =   4920
-      Style           =   1  'Graphical
-      TabIndex        =   1
-      Top             =   360
-      Visible         =   0   'False
-      Width           =   615
-   End
    Begin VB.Frame Frame1 
+      BackColor       =   &H00000000&
+      BorderStyle     =   0  'None
       Height          =   9615
       Left            =   360
       TabIndex        =   0
       Top             =   240
       Width           =   4215
+   End
+   Begin VB.CommandButton box 
+      BackColor       =   &H000000FF&
+      Height          =   495
+      Index           =   0
+      Left            =   4200
+      Style           =   1  'Graphical
+      TabIndex        =   1
+      Top             =   240
+      Visible         =   0   'False
+      Width           =   615
+   End
+   Begin VB.Label Label2 
+      BackStyle       =   0  'Transparent
+      Caption         =   "0"
+      BeginProperty Font 
+         Name            =   "MS Sans Serif"
+         Size            =   17.25
+         Charset         =   0
+         Weight          =   400
+         Underline       =   0   'False
+         Italic          =   0   'False
+         Strikethrough   =   0   'False
+      EndProperty
+      ForeColor       =   &H00FFFFFF&
+      Height          =   495
+      Left            =   6000
+      TabIndex        =   7
+      Top             =   450
+      Width           =   1695
+   End
+   Begin VB.Label Label1 
+      BackStyle       =   0  'Transparent
+      Caption         =   "Puntaje:"
+      BeginProperty Font 
+         Name            =   "MS Sans Serif"
+         Size            =   13.5
+         Charset         =   0
+         Weight          =   400
+         Underline       =   0   'False
+         Italic          =   0   'False
+         Strikethrough   =   0   'False
+      EndProperty
+      ForeColor       =   &H00FFFFFF&
+      Height          =   495
+      Left            =   4920
+      TabIndex        =   6
+      Top             =   480
+      Width           =   1335
    End
 End
 Attribute VB_Name = "Form1"
@@ -74,6 +115,8 @@ Attribute VB_Exposed = False
 Const BOX_SIZE As Integer = 400
 Const GRID_WIDTH As Integer = 10
 Const GRID_HEIGHT As Integer = 24
+
+Dim Score As Integer
 
 ' Tipos de piezas disponibles
 Private Type pieceType
@@ -88,12 +131,15 @@ Private m_ActiveBlocks As Collection
 Private m_LandedBlocks As Collection
 Private m_CurrentPieceType As String
 Private m_CurrentRotation As Integer ' 0: 0°, 1: 90°, 2: 180°, 3: 270°
+Private m_Grid(GRID_WIDTH, GRID_HEIGHT) As Boolean
 
 ' Inicializar el juego
 Private Sub InitializeGame()
     ' Configurar el tamaño del Frame
     Frame1.Width = GRID_WIDTH * BOX_SIZE
     Frame1.Height = GRID_HEIGHT * BOX_SIZE
+    
+    Score = 0
     
     ' Inicializar piezas
     InitializePieceTypes
@@ -178,7 +224,7 @@ End Sub
 
 Private Sub Command4_Click()
     If Timer1.Interval >= 200 Then
-        Timer1.Interval = Timer1.Interval - 100
+        Timer1.Interval = Timer1.Interval - 200
     End If
 End Sub
 
@@ -391,61 +437,124 @@ Private Function GetPieceColor(pieceType As String) As Long
     GetPieceColor = vbBlack ' Color por defecto
 End Function
 
+Private Function AlignToGrid(value As Single) As Integer
+    ' Redondea un valor a la coordenada de la grilla más cercana
+    ' Se usa Int(x + 0.5) para un redondeo aritmético estándar y evitar
+    ' el comportamiento de CInt que redondea al par más cercano en .5
+    AlignToGrid = Int(value / BOX_SIZE + 0.5) * BOX_SIZE
+End Function
+
+
+
 Private Function CheckCollision(offsetX As Integer, offsetY As Integer) As Boolean
-    ' Verifica colisión con bordes o bloques aterrizados
     Dim activeBlock As CommandButton
-    Dim landedBlock As CommandButton
-    
+    Dim gridX As Integer, gridY As Integer
+
     For Each activeBlock In m_ActiveBlocks
-        ' Verificar colisión con bordes
-        If activeBlock.Left + offsetX < 0 Or _
-           activeBlock.Left + offsetX >= Frame1.Width Or _
-           activeBlock.Top + offsetY >= Frame1.Height Or _
-           activeBlock.Top + offsetY < 0 Then
+        gridX = (activeBlock.Left + offsetX) / BOX_SIZE
+        gridY = (activeBlock.Top + offsetY) / BOX_SIZE
+
+        ' 1. Verificar colisión con bordes
+        If gridX < 0 Or gridX >= GRID_WIDTH Or gridY >= GRID_HEIGHT Then
             CheckCollision = True
             Exit Function
         End If
-        
-        ' Verificar colisión con bloques aterrizados
-        For Each landedBlock In m_LandedBlocks
-            If activeBlock.Left + offsetX = landedBlock.Left And _
-               activeBlock.Top + offsetY = landedBlock.Top Then
-                CheckCollision = True
-                Exit Function
-            End If
-        Next landedBlock
+
+        ' 2. Verificar colisión con bloques aterrizados en la grilla
+        If m_Grid(gridX, gridY) Then
+            CheckCollision = True
+            Exit Function
+        End If
     Next activeBlock
-    
+
     CheckCollision = False
 End Function
 
 Private Sub LandPiece()
-    ' La pieza ha aterrizado, transferirla a bloques aterrizados
     Dim block As CommandButton
-    For Each block In m_ActiveBlocks
-        m_LandedBlocks.Add block
-    Next block
+    Dim gridX As Integer, gridY As Integer
     
-    ' Reiniciar el temporizador
+    ' Marcar la posición de la pieza en la grilla y transferir los bloques
+    For Each block In m_ActiveBlocks
+        gridX = block.Left / BOX_SIZE
+        gridY = block.Top / BOX_SIZE
+        If gridX >= 0 And gridX < GRID_WIDTH And gridY >= 0 And gridY < GRID_HEIGHT Then
+            m_Grid(gridX, gridY) = True
+        End If
+        m_LandedBlocks.Add block
+    Next
+    
+    ' Restablecer el tiempo
     Timer1.Interval = 500
+    
+    ' Limpiar líneas completas
+    ClearCompletedLines
     
     ' Generar nueva pieza
     ShowRandomPiece
 End Sub
 
+Private Sub ClearCompletedLines()
+    Dim y As Integer, x As Integer, x2 As Integer, y2 As Integer
+    Dim fullLine As Boolean
+    
+    For y = GRID_HEIGHT - 1 To 0 Step -1
+        fullLine = True
+        For x = 0 To GRID_WIDTH - 1
+            If Not m_Grid(x, y) Then
+                fullLine = False
+                Exit For
+            End If
+        Next x
+        
+        If fullLine Then
+            ' Eliminar los botones de la línea
+            For i = m_LandedBlocks.Count To 1 Step -1
+                If (m_LandedBlocks(i).Top / BOX_SIZE) = y Then
+                    Unload m_LandedBlocks(i)
+                    m_LandedBlocks.Remove i
+                End If
+            Next i
+            
+            ' Bajar las líneas superiores
+            For y2 = y To 1 Step -1
+                For x2 = 0 To GRID_WIDTH - 1
+                    m_Grid(x2, y2) = m_Grid(x2, y2 - 1)
+                Next x2
+            Next y2
+            
+            ' Bajar los botones de las líneas superiores
+            For Each block In m_LandedBlocks
+                If (block.Top / BOX_SIZE) < y Then
+                    block.Top = block.Top + BOX_SIZE
+                End If
+            Next block
+            
+            ' Repetir la comprobación para la misma línea y (que ahora es nueva)
+            y = y + 1
+            
+            ' Mostramos puntaje
+            Score = Score + 1
+            Label2.Caption = Score
+        End If
+    Next y
+End Sub
+
 Private Sub MovePiece(offsetX As Integer, offsetY As Integer)
-    ' Si no hay colisión en la nueva posición, mover la pieza
+    ' Verifica si la nueva posición es válida
     If Not CheckCollision(offsetX, offsetY) Then
+        ' Si es válida, mueve la pieza
         Dim block As CommandButton
         For Each block In m_ActiveBlocks
             block.Left = block.Left + offsetX
             block.Top = block.Top + offsetY
         Next block
     Else
-        ' Si la colisión ocurrió al intentar mover hacia abajo, bloquear la pieza
+        ' Si no es válida y el movimiento era hacia abajo, bloquea la pieza
         If offsetY > 0 Then
             LandPiece
         End If
     End If
 End Sub
+
 

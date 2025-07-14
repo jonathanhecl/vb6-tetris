@@ -285,69 +285,16 @@ Private Function CreateButton(btnName As String, x As Integer, y As Integer, btn
 End Function
 
 Private Sub Timer1_Timer()
-    Dim block As CommandButton
-
-    If CanMoveDown() Then
-        ' Mover cada bloque de la pieza activa hacia abajo
-        For Each block In m_ActiveBlocks
-            block.Top = block.Top + BOX_SIZE
-        Next block
-    Else
-        ' La pieza ha aterrizado, transferirla a los bloques "aterrizados"
-        For Each block In m_ActiveBlocks
-            m_LandedBlocks.Add block
-        Next block
-        
-        ' Reiniciamos el tiempo
-        Timer1.Interval = 500
-        
-        ' Generar una nueva pieza
-        ShowRandomPiece
-    End If
+    ' Mover la pieza hacia abajo
+    MovePiece 0, BOX_SIZE
 End Sub
 
 Private Sub MoveLeft()
-    ' Solo verificar colisión con el borde izquierdo, no con bloques aterrizados
-    Dim canMove As Boolean
-    canMove = True
-    
-    ' Verificar colisión con el borde izquierdo
-    Dim block As CommandButton
-    For Each block In m_ActiveBlocks
-        If block.Left - BOX_SIZE < 0 Then
-            canMove = False
-            Exit For
-        End If
-    Next block
-    
-    ' Si no hay colisión con el borde, mover la pieza
-    If canMove Then
-        For Each block In m_ActiveBlocks
-            block.Left = block.Left - BOX_SIZE
-        Next block
-    End If
+    MovePiece -BOX_SIZE, 0
 End Sub
 
 Private Sub MoveRight()
-    ' Solo verificar colisión con el borde derecho, no con bloques aterrizados
-    Dim canMove As Boolean
-    canMove = True
-    
-    ' Verificar colisión con el borde derecho
-    Dim block As CommandButton
-    For Each block In m_ActiveBlocks
-        If block.Left + BOX_SIZE >= Frame1.Width Then
-            canMove = False
-            Exit For
-        End If
-    Next block
-    
-    ' Si no hay colisión con el borde, mover la pieza
-    If canMove Then
-        For Each block In m_ActiveBlocks
-            block.Left = block.Left + BOX_SIZE
-        Next block
-    End If
+    MovePiece BOX_SIZE, 0
 End Sub
 
 Private Function CanRotate(blocks() As Integer) As Boolean
@@ -444,25 +391,61 @@ Private Function GetPieceColor(pieceType As String) As Long
     GetPieceColor = vbBlack ' Color por defecto
 End Function
 
-Private Function CanMoveDown() As Boolean
+Private Function CheckCollision(offsetX As Integer, offsetY As Integer) As Boolean
+    ' Verifica colisión con bordes o bloques aterrizados
     Dim activeBlock As CommandButton
     Dim landedBlock As CommandButton
-    CanMoveDown = True ' Asumir que se puede mover
-
+    
     For Each activeBlock In m_ActiveBlocks
-        ' 1. Comprobar si el bloque ha llegado al fondo del area de juego
-        If activeBlock.Top + BOX_SIZE >= Frame1.Height Then
-            CanMoveDown = False
+        ' Verificar colisión con bordes
+        If activeBlock.Left + offsetX < 0 Or _
+           activeBlock.Left + offsetX >= Frame1.Width Or _
+           activeBlock.Top + offsetY >= Frame1.Height Or _
+           activeBlock.Top + offsetY < 0 Then
+            CheckCollision = True
             Exit Function
         End If
         
-        ' 2. Comprobar si choca con un bloque ya aterrizado
+        ' Verificar colisión con bloques aterrizados
         For Each landedBlock In m_LandedBlocks
-            If activeBlock.Left = landedBlock.Left And activeBlock.Top + BOX_SIZE = landedBlock.Top Then
-                CanMoveDown = False
+            If activeBlock.Left + offsetX = landedBlock.Left And _
+               activeBlock.Top + offsetY = landedBlock.Top Then
+                CheckCollision = True
                 Exit Function
             End If
         Next landedBlock
     Next activeBlock
+    
+    CheckCollision = False
 End Function
+
+Private Sub LandPiece()
+    ' La pieza ha aterrizado, transferirla a bloques aterrizados
+    Dim block As CommandButton
+    For Each block In m_ActiveBlocks
+        m_LandedBlocks.Add block
+    Next block
+    
+    ' Reiniciar el temporizador
+    Timer1.Interval = 500
+    
+    ' Generar nueva pieza
+    ShowRandomPiece
+End Sub
+
+Private Sub MovePiece(offsetX As Integer, offsetY As Integer)
+    ' Si no hay colisión en la nueva posición, mover la pieza
+    If Not CheckCollision(offsetX, offsetY) Then
+        Dim block As CommandButton
+        For Each block In m_ActiveBlocks
+            block.Left = block.Left + offsetX
+            block.Top = block.Top + offsetY
+        Next block
+    Else
+        ' Si la colisión ocurrió al intentar mover hacia abajo, bloquear la pieza
+        If offsetY > 0 Then
+            LandPiece
+        End If
+    End If
+End Sub
 

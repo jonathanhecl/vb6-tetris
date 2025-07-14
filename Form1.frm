@@ -9,6 +9,11 @@ Begin VB.Form Form1
    ScaleHeight     =   10230
    ScaleWidth      =   5880
    StartUpPosition =   1  'CenterOwner
+   Begin VB.Timer Timer1 
+      Interval        =   500
+      Left            =   4920
+      Top             =   960
+   End
    Begin VB.CommandButton box 
       BackColor       =   &H000000FF&
       Height          =   495
@@ -47,17 +52,23 @@ Private Type pieceType
 End Type
 
 Private m_PieceTypes() As pieceType
+Private m_ActiveBlocks As Collection
+Private m_LandedBlocks As Collection
 
 ' Inicializar el juego
 Private Sub InitializeGame()
-    ' Configurar el tamaÃ±o del Frame
+    ' Configurar el tamaño del Frame
     Frame1.Width = GRID_WIDTH * BOX_SIZE
     Frame1.Height = GRID_HEIGHT * BOX_SIZE
     
     ' Inicializar piezas
     InitializePieceTypes
     
-    ' Mostrar una pieza de prueba
+    ' Inicializar colecciones
+    Set m_ActiveBlocks = New Collection
+    Set m_LandedBlocks = New Collection
+
+    ' Mostrar la primera pieza
     ShowRandomPiece
 End Sub
 
@@ -99,6 +110,9 @@ Private Sub ShowRandomPiece()
     ' Calcular la posición centrada
     startX = (Frame1.Width - (m_PieceTypes(pieceIndex).Width * BOX_SIZE)) \ 2
     
+    ' Limpiar bloques activos anteriores
+    Set m_ActiveBlocks = New Collection
+
     ' Crear la pieza
     CreatePiece startX, 0, m_PieceTypes(pieceIndex).Name, m_PieceTypes(pieceIndex).Color
 End Sub
@@ -125,43 +139,68 @@ Private Sub CreatePiece(startX As Integer, startY As Integer, pieceType As Strin
         Case "I" ' I shape (line)
             For i = 0 To 3
                 Set btn = CreateButton("btn" & pieceType & i, startX + (i * BOX_SIZE), startY, pieceColor)
+                m_ActiveBlocks.Add btn
             Next i
             
         Case "O" ' O shape (square)
             Set btn = CreateButton("btn" & pieceType & "0", startX, startY, pieceColor)
+            m_ActiveBlocks.Add btn
             Set btn = CreateButton("btn" & pieceType & "1", startX + BOX_SIZE, startY, pieceColor)
+            m_ActiveBlocks.Add btn
             Set btn = CreateButton("btn" & pieceType & "2", startX, startY + BOX_SIZE, pieceColor)
+            m_ActiveBlocks.Add btn
             Set btn = CreateButton("btn" & pieceType & "3", startX + BOX_SIZE, startY + BOX_SIZE, pieceColor)
+            m_ActiveBlocks.Add btn
             
         Case "J" ' J shape
             Set btn = CreateButton("btn" & pieceType & "0", startX, startY, pieceColor)
+            m_ActiveBlocks.Add btn
             Set btn = CreateButton("btn" & pieceType & "1", startX, startY + BOX_SIZE, pieceColor)
+            m_ActiveBlocks.Add btn
             Set btn = CreateButton("btn" & pieceType & "2", startX + BOX_SIZE, startY + BOX_SIZE, pieceColor)
+            m_ActiveBlocks.Add btn
             Set btn = CreateButton("btn" & pieceType & "3", startX + (2 * BOX_SIZE), startY + BOX_SIZE, pieceColor)
+            m_ActiveBlocks.Add btn
             
         Case "L" ' L shape
             Set btn = CreateButton("btn" & pieceType & "0", startX, startY + BOX_SIZE, pieceColor)
+            m_ActiveBlocks.Add btn
             Set btn = CreateButton("btn" & pieceType & "1", startX + BOX_SIZE, startY + BOX_SIZE, pieceColor)
+            m_ActiveBlocks.Add btn
             Set btn = CreateButton("btn" & pieceType & "2", startX + (2 * BOX_SIZE), startY + BOX_SIZE, pieceColor)
+            m_ActiveBlocks.Add btn
             Set btn = CreateButton("btn" & pieceType & "3", startX + (2 * BOX_SIZE), startY, pieceColor)
+            m_ActiveBlocks.Add btn
             
         Case "S" ' S shape
             Set btn = CreateButton("btn" & pieceType & "0", startX + BOX_SIZE, startY, pieceColor)
+            m_ActiveBlocks.Add btn
             Set btn = CreateButton("btn" & pieceType & "1", startX + (2 * BOX_SIZE), startY, pieceColor)
+            m_ActiveBlocks.Add btn
             Set btn = CreateButton("btn" & pieceType & "2", startX, startY + BOX_SIZE, pieceColor)
+            m_ActiveBlocks.Add btn
             Set btn = CreateButton("btn" & pieceType & "3", startX + BOX_SIZE, startY + BOX_SIZE, pieceColor)
+            m_ActiveBlocks.Add btn
             
         Case "Z" ' Z shape
             Set btn = CreateButton("btn" & pieceType & "0", startX, startY, pieceColor)
+            m_ActiveBlocks.Add btn
             Set btn = CreateButton("btn" & pieceType & "1", startX + BOX_SIZE, startY, pieceColor)
+            m_ActiveBlocks.Add btn
             Set btn = CreateButton("btn" & pieceType & "2", startX + BOX_SIZE, startY + BOX_SIZE, pieceColor)
+            m_ActiveBlocks.Add btn
             Set btn = CreateButton("btn" & pieceType & "3", startX + (2 * BOX_SIZE), startY + BOX_SIZE, pieceColor)
+            m_ActiveBlocks.Add btn
             
         Case "T" ' T shape
             Set btn = CreateButton("btn" & pieceType & "0", startX, startY + BOX_SIZE, pieceColor)
+            m_ActiveBlocks.Add btn
             Set btn = CreateButton("btn" & pieceType & "1", startX + BOX_SIZE, startY + BOX_SIZE, pieceColor)
+            m_ActiveBlocks.Add btn
             Set btn = CreateButton("btn" & pieceType & "2", startX + (2 * BOX_SIZE), startY + BOX_SIZE, pieceColor)
+            m_ActiveBlocks.Add btn
             Set btn = CreateButton("btn" & pieceType & "3", startX + BOX_SIZE, startY, pieceColor)
+            m_ActiveBlocks.Add btn
     End Select
 End Sub
 
@@ -184,3 +223,116 @@ Private Function CreateButton(btnName As String, x As Integer, y As Integer, btn
     
     Set CreateButton = box(buttonCount)
 End Function
+
+Private Sub Timer1_Timer()
+    Dim block As CommandButton
+
+    If CanMoveDown() Then
+        ' Mover cada bloque de la pieza activa hacia abajo
+        For Each block In m_ActiveBlocks
+            block.Top = block.Top + BOX_SIZE
+        Next block
+    Else
+        ' La pieza ha aterrizado, transferirla a los bloques "aterrizados"
+        For Each block In m_ActiveBlocks
+            m_LandedBlocks.Add block
+        Next block
+        
+        ' Generar una nueva pieza
+        ShowRandomPiece
+    End If
+End Sub
+
+Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    Select Case KeyCode
+        Case vbKeyLeft
+            MoveLeft
+        Case vbKeyRight
+            MoveRight
+    End Select
+End Sub
+
+Private Sub MoveLeft()
+    If Not CanMoveLeft() Then Exit Sub
+    
+    Dim block As CommandButton
+    For Each block In m_ActiveBlocks
+        block.Left = block.Left - BOX_SIZE
+    Next block
+End Sub
+
+Private Sub MoveRight()
+    If Not CanMoveRight() Then Exit Sub
+    
+    Dim block As CommandButton
+    For Each block In m_ActiveBlocks
+        block.Left = block.Left + BOX_SIZE
+    Next block
+End Sub
+
+Private Function CanMoveLeft() As Boolean
+    Dim activeBlock As CommandButton
+    Dim landedBlock As CommandButton
+    CanMoveLeft = True
+
+    For Each activeBlock In m_ActiveBlocks
+        ' 1. Comprobar colisión con el borde izquierdo
+        If activeBlock.Left - BOX_SIZE < 0 Then
+            CanMoveLeft = False
+            Exit Function
+        End If
+        
+        ' 2. Comprobar colisión con bloques aterrizados
+        For Each landedBlock In m_LandedBlocks
+            If activeBlock.Top = landedBlock.Top And activeBlock.Left - BOX_SIZE = landedBlock.Left Then
+                CanMoveLeft = False
+                Exit Function
+            End If
+        Next landedBlock
+    Next activeBlock
+End Function
+
+Private Function CanMoveRight() As Boolean
+    Dim activeBlock As CommandButton
+    Dim landedBlock As CommandButton
+    CanMoveRight = True
+
+    For Each activeBlock In m_ActiveBlocks
+        ' 1. Comprobar colisión con el borde derecho
+        If activeBlock.Left + activeBlock.Width + BOX_SIZE > Frame1.Width Then
+            CanMoveRight = False
+            Exit Function
+        End If
+        
+        ' 2. Comprobar colisión con bloques aterrizados
+        For Each landedBlock In m_LandedBlocks
+            If activeBlock.Top = landedBlock.Top And activeBlock.Left + BOX_SIZE = landedBlock.Left Then
+                CanMoveRight = False
+                Exit Function
+            End If
+        Next landedBlock
+    Next activeBlock
+End Function
+
+Private Function CanMoveDown() As Boolean
+    Dim activeBlock As CommandButton
+    Dim landedBlock As CommandButton
+    CanMoveDown = True ' Asumir que se puede mover
+
+    For Each activeBlock In m_ActiveBlocks
+        ' 1. Comprobar si el bloque ha llegado al fondo del area de juego
+        If activeBlock.Top + activeBlock.Height >= Frame1.Height + BOX_SIZE Then
+            CanMoveDown = False
+            Exit Function
+        End If
+        
+        ' 2. Comprobar si choca con un bloque ya aterrizado
+        For Each landedBlock In m_LandedBlocks
+            If activeBlock.Left = landedBlock.Left And activeBlock.Top + BOX_SIZE = landedBlock.Top Then
+                CanMoveDown = False
+                Exit Function
+            End If
+        Next landedBlock
+    Next activeBlock
+End Function
+
